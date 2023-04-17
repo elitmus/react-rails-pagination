@@ -5,8 +5,9 @@ import './index.css.scss';
 class Pagination extends React.Component {
   constructor(props) {
     super(props);
-    const { page, path } = this.props;
-    this.path = path === '' ? `${window.location.pathname}?page=` : `${path}?page=`;
+    const { page } = this.props;
+
+    this.path = this.getCustomizedParamsPath();
     this.state = { page: parseInt(page) };
   }
 
@@ -20,20 +21,39 @@ class Pagination extends React.Component {
     const { outline, color } = this.props;
     const prefix = 'rails-pagination';
     let classes = '';
-    if (outline) classes += '-' + 'outline';
+    if (outline) classes += '-outline';
 
-    if (color) classes += '-' + color;
+    if (color) classes += `-${color}`;
 
     if (classes) classes = prefix + classes;
 
     return classes;
   }
 
+  getCustomizedParamsPath() {
+    const { params, path } = this.props;
+    let customParams = '';
+
+    Object.keys(params).forEach((param) => {
+      customParams += `${param}=${params[param]}`;
+    });
+
+    if (customParams === '') {
+      const headerParams = new URLSearchParams(window.location.search);
+      headerParams.delete('page');
+      customParams = headerParams.toString();
+    }
+
+    customParams = customParams === '' ? '?page=' : `?${customParams}&page=`;
+
+    return `${path}${customParams}`;
+  }
+
   changePage(event, pagePath, pageNumber) {
     const { handleChangePage } = this.props;
     event.preventDefault();
     if (window.history.pushState) {
-      window.history.pushState("Update from React Pagination", document.title, pagePath);
+      window.history.pushState('Update from React Pagination', document.title, pagePath);
     } else {
       document.location.href = pagePath;
     }
@@ -43,33 +63,41 @@ class Pagination extends React.Component {
   paginationElement(number, index) {
     const displayName = number;
     const { page } = this.state;
-    const { pages } = this.props;
+    const { pages, params } = this.props;
+
     let pageNumber = number;
-    let pagePath = `${this.path}${pageNumber}`;
     let canClick = true;
 
-    if (pageNumber === 'Prev') {
+    switch (pageNumber) {
+    case 'Prev':
       pageNumber = page - 1;
-      pagePath = `${this.path}${pageNumber}`;
-      if (page === 1) canClick = false;
-    } else if (pageNumber === 'Next') {
+      if (page === 1) {
+        canClick = false;
+      }
+      break;
+    case 'Next':
       pageNumber = page + 1;
-      pagePath = `${this.path}${pageNumber}`;
-      if (page === pages) canClick = false;
-    } else if (pageNumber === '...') {
-      pagePath = '';
+      if (page === pages) {
+        canClick = false;
+      }
+      break;
+    case '...':
       canClick = false;
-    } else if (pageNumber === '<<') {
+      break;
+    case '<<':
       pageNumber = 1;
-      pagePath = `${this.path}${pageNumber}`;
-    } else if (pageNumber === '>>') {
+      break;
+    case '>>':
       pageNumber = pages;
-      pagePath = `${this.path}${pageNumber}`;
+      break;
+    default:
     }
 
     if (pageNumber === page && (displayName === '>>' || displayName === '<<')) {
       canClick = false;
     }
+
+    const pagePath = canClick ? `${this.getCustomizedParamsPath(params)}${pageNumber}` : '';
 
     return (
       <li key={index} className={number === page ? 'active' : 'inactive'}>
@@ -94,7 +122,6 @@ class Pagination extends React.Component {
     const edgeElementCount = 3;
     const renderedPages = [];
     const additionalClass = self.getAdditionalClasses();
-
     for (let i = page - maxElements; i <= page + maxElements; i += 1) {
       if (!renderedPages.includes(i)) renderedPages.push(i);
     }
@@ -146,6 +173,7 @@ Pagination.propTypes = {
   pages: PropTypes.number.isRequired,
   handleChangePage: PropTypes.func.isRequired,
   path: PropTypes.string,
+  params: PropTypes.object,
   hideEndArrows: PropTypes.bool,
   hideNavButtons: PropTypes.bool,
   outline: PropTypes.bool,
@@ -154,6 +182,7 @@ Pagination.propTypes = {
 
 Pagination.defaultProps = {
   path: '',
+  params: {},
   hideEndArrows: false,
   hideNavButtons: false,
   outline: false,
